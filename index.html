@@ -1,0 +1,1889 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=5,minimum-scale=1,width=device-width" />
+    <title>Wheel of Names (local)</title>
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#3369e8" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --accent: #1976d2;
+        --toolbar: #f5f5f5;
+        --panel: #ffffff;
+        --border: rgb(0 0 0 / 0.12);
+        --shadow: 0px 3px 6px 2px rgb(0 0 0 / 0.2);
+        --text: #111;
+        --muted: rgb(0 0 0 / 0.6);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 70% 0%, #ffd6d6 0%, #f4f6ff 28%, #eaf1ff 52%, #f7fbff 100%);
+        overflow-x: hidden;
+      }
+
+      /* Top bar */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        padding: 0 12px;
+        min-height: 50px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--toolbar);
+        box-shadow: var(--shadow);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 21px;
+        font-weight: 500;
+        user-select: none;
+      }
+      .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #0f172a;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 10px #0003;
+      }
+      .logo svg { width: 22px; height: 22px; }
+      .top-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 12px;
+        color: #222;
+      }
+      .top-actions .item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        user-select: none;
+      }
+      .top-actions .item b { font-weight: 700; }
+
+      /* Main layout */
+      .layout {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 14px 12px 80px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+      @media (min-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr minmax(560px, 780px) minmax(340px, 420px);
+          align-items: start;
+        }
+      }
+      .wheel-col { display: grid; justify-items: center; }
+      .wheel-wrap {
+        position: relative;
+        width: min(92vw, 760px);
+        aspect-ratio: 1 / 1;
+        display: grid;
+        place-items: center;
+      }
+
+      /* Right-side pointer (triangle) */
+      .pointer {
+        position: absolute;
+        right: -22px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0;
+        height: 0;
+        border-top: 14px solid transparent;
+        border-bottom: 14px solid transparent;
+        border-left: 28px solid #d32f2f;
+        filter: drop-shadow(0 2px 2px #0003);
+        z-index: 3;
+      }
+
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        border-radius: 999px;
+        filter: drop-shadow(0 8px 22px #0003);
+      }
+      .wheel-click {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 999px;
+      }
+      .wheel-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        display: grid;
+        place-items: center;
+      }
+      .overlay-ring {
+        width: 74%;
+        height: 74%;
+        position: relative;
+      }
+      .overlay-ring span {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) rotate(-20deg);
+        font-weight: 700;
+        font-size: clamp(22px, 3.6vw, 44px);
+        color: #fff;
+        text-shadow: 0 3px 6px #0008;
+        letter-spacing: 0.5px;
+      }
+      .overlay-hint {
+        position: absolute;
+        left: 50%;
+        bottom: 7%;
+        transform: translateX(-50%) rotate(10deg);
+        font-weight: 700;
+        font-size: clamp(14px, 2vw, 22px);
+        color: #fff;
+        text-shadow: 0 3px 6px #0008;
+        opacity: 0.95;
+        white-space: nowrap;
+      }
+
+      /* Side panel mimicking WoN */
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 0 0 2px rgb(255 0 0 / 0.25) inset; /* subtle “red outline” vibe from screenshot */
+      }
+      .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
+        background: #fff;
+      }
+      .tab {
+        flex: 0 0 auto;
+        padding: 10px 14px;
+        font-weight: 500;
+        font-size: 12px;
+        color: #333;
+        border-right: 1px solid var(--border);
+        background: #fff;
+      }
+      .tab.active {
+        background: #e3f2fd;
+        color: #0b5aa7;
+        font-weight: 700;
+      }
+      .toolbar2 {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px;
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+      }
+      .btn {
+        background: #1e88e5;
+        color: #fff;
+        border: 0;
+        border-radius: 2px;
+        padding: 6px 10px;
+        font: inherit;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .btn.secondary {
+        background: #1565c0;
+      }
+      .btn.ghost {
+        background: #fff;
+        border: 1px solid var(--border);
+        color: #333;
+        font-weight: 700;
+      }
+      .toolbar2 .spacer { flex: 1; }
+      .small {
+        font-size: 11px;
+        color: #333;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        user-select: none;
+      }
+      .area {
+        padding: 8px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 360px;
+        resize: none;
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 8px;
+        font: inherit;
+        font-size: 14px;
+        line-height: 1.3;
+        outline: none;
+      }
+      .footerbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-top: 1px solid var(--border);
+        background: #fff;
+      }
+      .footerbar .version {
+        margin-left: auto;
+        font-size: 10px;
+        color: #666;
+      }
+
+      /* Hidden rig button bottom-left */
+      #rig-host {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 56px;
+        height: 56px;
+        z-index: 99;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        margin: 0;
+      }
+      #rig-panel {
+        position: fixed;
+        left: 12px;
+        bottom: 64px;
+        width: min(92vw, 320px);
+        padding: 12px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 12px 40px #0004;
+        z-index: 100;
+        display: none;
+      }
+      #rig-panel.open { display: block; }
+      #rig-panel h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; color: #333; letter-spacing: 0.2px; }
+      #rig-panel p { margin: 0 0 8px; font-size: 12px; color: #444; opacity: 0.9; }
+      #rig-panel select {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        font: inherit;
+      }
+      #rig-panel .rig-actions { display: flex; gap: 8px; margin-top: 10px; }
+      #rig-panel .rig-actions button { flex: 1; }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2a10 10 0 1 0 10 10" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 6a6 6 0 1 0 6 6" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" />
+            <path d="M12 10a2 2 0 1 0 2 2" stroke="#34d399" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div>wheelofnames.com</div>
+      </div>
+      <div class="top-actions">
+        <div class="item"><b>Customize</b></div>
+        <div class="item">New</div>
+        <div class="item">Open</div>
+        <div class="item">Save</div>
+        <div class="item">Share</div>
+        <div class="item">Gallery</div>
+        <div class="item">More</div>
+        <div class="item">English</div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <div></div>
+
+      <section class="wheel-col">
+        <div class="wheel-wrap">
+          <div class="pointer" aria-hidden="true"></div>
+          <canvas id="wheel" width="900" height="900" aria-label="Wheel"></canvas>
+          <button class="wheel-click" id="wheelClick" type="button" aria-label="Click to spin"></button>
+          <div class="wheel-overlay" aria-hidden="true">
+            <div class="overlay-ring">
+              <span id="overlayText">Click to spin</span>
+              <div class="overlay-hint" id="overlayHint">or press ctrl+enter</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="tabs">
+          <div class="tab active">Entries</div>
+          <div class="tab">Results</div>
+        </div>
+        <div class="toolbar2">
+          <button class="btn ghost" id="shuffleBtn" type="button">Shuffle</button>
+          <button class="btn" id="sortBtn" type="button">Sort</button>
+          <button class="btn secondary" id="addImgBtn" type="button">Add image</button>
+          <div class="spacer"></div>
+          <label class="small"><input id="advancedChk" type="checkbox" /> Advanced</label>
+        </div>
+        <div class="area">
+          <textarea id="entries" spellcheck="false">test
+test</textarea>
+        </div>
+        <div class="footerbar">
+          <button class="btn ghost" id="addWheelBtn" type="button">+ Add wheel</button>
+          <div class="version">Version 411</div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Hidden rig trigger (bottom-left 56×56 px) -->
+    <button id="rig-host" type="button" aria-label=""></button>
+    <div id="rig-panel" role="dialog" aria-labelledby="rig-title">
+      <h3 id="rig-title">Rig next spin</h3>
+      <p>Pick the winner for the next spin only. Clears after spinning.</p>
+      <select id="rig-select" aria-label="Rigged winner"></select>
+      <div class="rig-actions">
+        <button class="btn ghost" id="rig-clear" type="button">Use random</button>
+        <button class="btn" id="rig-close" type="button">Done</button>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        const entriesEl = document.getElementById("entries");
+        const wheelClick = document.getElementById("wheelClick");
+        const shuffleBtn = document.getElementById("shuffleBtn");
+        const sortBtn = document.getElementById("sortBtn");
+
+        const rigHost = document.getElementById("rig-host");
+        const rigPanel = document.getElementById("rig-panel");
+        const rigSelect = document.getElementById("rig-select");
+        const rigClear = document.getElementById("rig-clear");
+        const rigClose = document.getElementById("rig-close");
+
+        const overlayText = document.getElementById("overlayText");
+        const overlayHint = document.getElementById("overlayHint");
+
+        const colors = ["#d32f2f", "#2f66d3", "#2fb7d3", "#2fd36a", "#f6c445", "#ab47bc"];
+
+        let names = [];
+        let rotation = 0;
+        let spinning = false;
+        let forcedIndex = null;
+        let lastWinner = null;
+
+        function parseNames() {
+          names = entriesEl.value
+            .split(/\\r?\\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return names.length;
+        }
+
+        function randomIndex() {
+          const n = names.length;
+          const buf = new Uint32Array(1);
+          crypto.getRandomValues(buf);
+          return buf[0] % n;
+        }
+
+        function fillRigSelect() {
+          const n = parseNames();
+          rigSelect.innerHTML = "";
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "— Random —";
+          rigSelect.appendChild(opt0);
+          names.forEach((name, i) => {
+            const o = document.createElement("option");
+            o.value = String(i);
+            o.textContent = name;
+            rigSelect.appendChild(o);
+          });
+          rigSelect.value = forcedIndex === null ? "" : String(forcedIndex);
+          rigSelect.disabled = n === 0;
+        }
+
+        function drawWheel() {
+          const n = names.length;
+          const w = canvas.width;
+          const h = canvas.height;
+          const cx = w / 2;
+          const cy = h / 2;
+          const r = Math.min(w, h) * 0.42;
+
+          ctx.clearRect(0, 0, w, h);
+
+          // soft outer shadow ring / bevel
+          ctx.save();
+          ctx.translate(cx, cy);
+          const rim = ctx.createRadialGradient(0, 0, r * 0.9, 0, 0, r * 1.05);
+          rim.addColorStop(0, "rgba(0,0,0,0)");
+          rim.addColorStop(0.6, "rgba(0,0,0,0.10)");
+          rim.addColorStop(1, "rgba(0,0,0,0.22)");
+          ctx.fillStyle = rim;
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 1.05, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+
+          if (n === 0) {
+            return;
+          }
+
+          const slice = (Math.PI * 2) / n;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(rotation);
+
+          for (let i = 0; i < n; i++) {
+            const start = -Math.PI / 2 + i * slice;
+            const end = start + slice;
+
+            // segment gradient (gives that “shiny” look)
+            const base = colors[i % colors.length];
+            const grad = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r);
+            grad.addColorStop(0, "rgba(255,255,255,0.10)");
+            grad.addColorStop(0.25, base);
+            grad.addColorStop(1, "rgba(0,0,0,0.22)");
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, r, start, end);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.strokeStyle = "rgba(255,255,255,0.10)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // text
+            ctx.save();
+            ctx.rotate(start + slice / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.shadowColor = "rgba(0,0,0,0.7)";
+            ctx.shadowBlur = 6;
+            const size = Math.max(22, Math.min(72, 760 / (n + 1)));
+            ctx.font = `700 ${size}px Roboto, system-ui, sans-serif`;
+            const label = names[i].length > 18 ? names[i].slice(0, 16) + "…" : names[i];
+            ctx.fillText(label, r - 26, 18);
+            ctx.restore();
+          }
+
+          ctx.restore();
+
+          // center hole
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.beginPath();
+          ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff";
+          ctx.fill();
+          ctx.shadowColor = "rgba(0,0,0,0.25)";
+          ctx.shadowBlur = 10;
+          ctx.strokeStyle = "rgba(0,0,0,0.10)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
+        // pointer is at angle 0 (right side)
+        function segmentCenterAngle(i) {
+          const n = names.length;
+          const slice = (Math.PI * 2) / n;
+          return -Math.PI / 2 + (i + 0.5) * slice;
+        }
+
+        function spin() {
+          if (spinning) return;
+          const n = parseNames();
+          if (n < 2) return;
+
+          const winner = forcedIndex !== null && forcedIndex >= 0 && forcedIndex < n ? forcedIndex : randomIndex();
+
+          // right-side pointer angle = 0
+          const pointer = 0;
+          const current = rotation;
+          const center = segmentCenterAngle(winner);
+          const normalized = ((pointer - center - current) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          const extraTurns = 6 + Math.floor(Math.random() * 3);
+          const target = current + extraTurns * Math.PI * 2 + normalized;
+
+          spinning = true;
+          overlayText.textContent = "";
+          overlayHint.textContent = "";
+
+          const duration = 4200;
+          const t0 = performance.now();
+
+          function frame(now) {
+            const t = Math.min(1, (now - t0) / duration);
+            rotation = current + (target - current) * easeOutCubic(t);
+            drawWheel();
+            if (t < 1) return requestAnimationFrame(frame);
+
+            spinning = false;
+            lastWinner = names[winner] ?? null;
+            overlayText.textContent = lastWinner ?? "Click to spin";
+            overlayHint.textContent = "winner";
+
+            if (forcedIndex !== null) {
+              forcedIndex = null;
+              rigSelect.value = "";
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        // UI events
+        wheelClick.addEventListener("click", spin);
+        document.addEventListener("keydown", (e) => {
+          if (e.ctrlKey && e.key === "Enter") spin();
+        });
+        shuffleBtn.addEventListener("click", () => {
+          parseNames();
+          for (let i = names.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [names[i], names[j]] = [names[j], names[i]];
+          }
+          entriesEl.value = names.join("\\n");
+          fillRigSelect();
+          drawWheel();
+        });
+        sortBtn.addEventListener("click", () => {
+          parseNames();
+          names.sort((a, b) => a.localeCompare(b));
+          entriesEl.value = names.join("\\n");
+          fillRigSelect();
+          drawWheel();
+        });
+        entriesEl.addEventListener("input", () => {
+          parseNames();
+          fillRigSelect();
+          drawWheel();
+        });
+
+        // rig (hidden)
+        rigHost.addEventListener("click", () => {
+          fillRigSelect();
+          rigPanel.classList.toggle("open");
+        });
+        rigSelect.addEventListener("change", () => {
+          const v = rigSelect.value;
+          forcedIndex = v === "" ? null : Number(v);
+        });
+        rigClear.addEventListener("click", () => {
+          forcedIndex = null;
+          rigSelect.value = "";
+        });
+        rigClose.addEventListener("click", () => rigPanel.classList.remove("open"));
+        document.addEventListener("click", (e) => {
+          if (!rigPanel.classList.contains("open")) return;
+          if (rigPanel.contains(e.target) || rigHost.contains(e.target)) return;
+          rigPanel.classList.remove("open");
+        });
+
+        // init
+        parseNames();
+        fillRigSelect();
+        drawWheel();
+      })();
+    </script>
+  </body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wheel of Names (local)</title>
+    <meta name="description" content="Local wheel spinner. Enter names, spin wheel, pick a winner." />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="theme-color" content="#1976d2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --panel: #ffffff;
+        --text: #111111;
+        --muted: rgb(0 0 0 / 0.6);
+        --accent: #1976d2;
+        --border: rgb(0 0 0 / 0.12);
+        --toolbar: #f5f5f5;
+        --shadow: 0px 3px 6px 2px rgb(0 0 0 / 0.2);
+        --card-shadow: 0 0 8px #0003;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121212;
+          --panel: #1c1f26;
+          --text: #ffffff;
+          --muted: rgb(255 255 255 / 0.72);
+          --border: rgb(255 255 255 / 0.18);
+          --toolbar: #1c1f26;
+          --shadow: 0px 3px 6px 2px rgb(0 0 0 / 0.5);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+          Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      /* Toolbar (Wheel of Names-like) */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 0 12px;
+        min-height: 50px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--toolbar);
+        box-shadow: var(--shadow);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 500;
+        font-size: 21px;
+        letter-spacing: 0.1px;
+      }
+      .brand img,
+      .brand .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+      }
+      .logo {
+        background: #0f172a;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 10px #0003;
+      }
+      .logo svg {
+        width: 22px;
+        height: 22px;
+      }
+      .topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .action {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font: inherit;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      .action.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      /* Page layout similar to WoN: left gutter, wheel, editor, right gutter */
+      .layout {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 16px 12px 96px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (min-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr minmax(520px, 700px) minmax(320px, 420px) 1fr;
+          column-gap: 20px;
+        }
+      }
+      .gutter {
+        display: none;
+      }
+      @media (min-width: 900px) {
+        .gutter {
+          display: block;
+        }
+      }
+      .wheel-col {
+        display: grid;
+        justify-items: center;
+      }
+
+      .wheel-wrap {
+        position: relative;
+        width: min(92vw, 700px);
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: 999px;
+        box-shadow: var(--card-shadow);
+        background: transparent;
+      }
+      .pointer {
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 16px solid transparent;
+        border-right: 16px solid transparent;
+        border-top: 32px solid var(--accent);
+        filter: drop-shadow(0 2px 4px #0004);
+        z-index: 2;
+      }
+
+      .side {
+        width: 100%;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: var(--card-shadow);
+      }
+      .side h2 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--muted);
+        letter-spacing: 0.2px;
+        text-transform: uppercase;
+      }
+      textarea {
+        width: 100%;
+        min-height: 280px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        resize: vertical;
+        line-height: 1.45;
+      }
+      textarea:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+        outline-offset: 2px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+        align-items: center;
+      }
+      .btn {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: inherit;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .btn.primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .result {
+        margin-top: 10px;
+        font-size: 18px;
+        font-weight: 700;
+        min-height: 1.5em;
+      }
+
+      /* Hidden outcome control */
+      #rig-host {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 56px;
+        height: 56px;
+        z-index: 50;
+        cursor: default;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+      }
+      #rig-panel {
+        position: fixed;
+        left: 12px;
+        bottom: 64px;
+        width: min(92vw, 320px);
+        padding: 14px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px #0004;
+        z-index: 51;
+        display: none;
+      }
+      #rig-panel.open {
+        display: block;
+      }
+      #rig-panel h3 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        letter-spacing: 0.2px;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      #rig-panel p {
+        margin: 0 0 10px;
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      #rig-panel select,
+      #rig-panel button {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px;
+        border-radius: 8px;
+        font: inherit;
+      }
+      #rig-panel select {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: inherit;
+      }
+      #rig-panel .rig-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      #rig-panel .rig-actions button {
+        margin-top: 0;
+        flex: 1;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        #preload-wheel {
+          filter: invert(0.925);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2a10 10 0 1 0 10 10"
+              stroke="#ffffff"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M12 6a6 6 0 1 0 6 6"
+              stroke="#60a5fa"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M12 10a2 2 0 1 0 2 2"
+              stroke="#34d399"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div>wheelofnames.com</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="action" type="button" id="removeWinnerBtn" title="Remove winner after a spin">
+          Remove winner
+        </button>
+        <button class="action primary" type="button" id="spinTopBtn">Spin</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <div class="gutter"></div>
+
+      <div class="wheel-col">
+        <div class="wheel-wrap">
+          <div class="pointer" aria-hidden="true"></div>
+          <canvas id="wheel" width="640" height="640" role="img" aria-label="Prize wheel"></canvas>
+        </div>
+      </div>
+
+      <aside class="side">
+        <h2>Entries</h2>
+        <textarea id="entries" spellcheck="false">Alex
+Jamie
+Riley
+Jordan
+Casey</textarea>
+        <div class="row">
+          <button type="button" class="btn primary" id="spinBtn">Spin</button>
+          <button type="button" class="btn" id="shuffleBtn">Shuffle</button>
+          <button type="button" class="btn" id="clearBtn">Clear</button>
+        </div>
+        <div class="result" id="result" aria-live="polite"></div>
+      </aside>
+
+      <div class="gutter"></div>
+    </main>
+
+    <!-- Hidden trigger: click the empty bottom-left corner (56×56) -->
+    <button type="button" id="rig-host" title="" aria-label=""></button>
+    <div id="rig-panel" role="dialog" aria-labelledby="rig-title" aria-modal="false">
+      <h3 id="rig-title">Next spin outcome</h3>
+      <p>Pick who wins on the next spin. Clears after one spin.</p>
+      <select id="rig-select" aria-label="Forced winner"></select>
+      <div class="rig-actions">
+        <button type="button" class="btn" id="rig-clear">Use random</button>
+        <button type="button" class="btn primary" id="rig-close">Done</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        const entriesEl = document.getElementById("entries");
+        const spinBtn = document.getElementById("spinBtn");
+        const spinTopBtn = document.getElementById("spinTopBtn");
+        const shuffleBtn = document.getElementById("shuffleBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const removeWinnerBtn = document.getElementById("removeWinnerBtn");
+        const resultEl = document.getElementById("result");
+        const rigHost = document.getElementById("rig-host");
+        const rigPanel = document.getElementById("rig-panel");
+        const rigSelect = document.getElementById("rig-select");
+        const rigClear = document.getElementById("rig-clear");
+        const rigClose = document.getElementById("rig-close");
+
+        const colors = [
+          "#f44336",
+          "#e91e63",
+          "#9c27b0",
+          "#673ab7",
+          "#3f51b5",
+          "#2196f3",
+          "#03a9f4",
+          "#00bcd4",
+          "#009688",
+          "#4caf50",
+          "#8bc34a",
+          "#cddc39",
+          "#ffeb3b",
+          "#ffc107",
+          "#ff9800",
+          "#ff5722",
+        ];
+
+        let names = [];
+        let rotation = 0;
+        let spinning = false;
+        let forcedIndex = null; // next-spin forced index
+        let removeWinnerAfterSpin = false;
+
+        function parseNames() {
+          names = entriesEl.value
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return names.length;
+        }
+
+        function randomIndex() {
+          const n = names.length;
+          const buf = new Uint32Array(1);
+          crypto.getRandomValues(buf);
+          return buf[0] % n;
+        }
+
+        function fillRigSelect() {
+          const n = parseNames();
+          rigSelect.innerHTML = "";
+          if (n === 0) {
+            rigSelect.disabled = true;
+            return;
+          }
+          rigSelect.disabled = false;
+
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "— Random —";
+          rigSelect.appendChild(opt0);
+
+          names.forEach((name, i) => {
+            const o = document.createElement("option");
+            o.value = String(i);
+            o.textContent = name;
+            rigSelect.appendChild(o);
+          });
+
+          if (forcedIndex !== null && forcedIndex >= 0 && forcedIndex < n) {
+            rigSelect.value = String(forcedIndex);
+          } else {
+            rigSelect.value = "";
+          }
+        }
+
+        function drawWheel() {
+          const n = names.length;
+          const w = canvas.width;
+          const h = canvas.height;
+          const cx = w / 2;
+          const cy = h / 2;
+          const r = Math.min(w, h) * 0.44;
+          ctx.clearRect(0, 0, w, h);
+
+          if (n === 0) {
+            ctx.fillStyle = "#8884";
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            return;
+          }
+
+          const slice = (Math.PI * 2) / n;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(rotation);
+
+          for (let i = 0; i < n; i++) {
+            const start = -Math.PI / 2 + i * slice;
+            const end = start + slice;
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, r, start, end);
+            ctx.closePath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = "#fff8";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.save();
+            ctx.rotate(start + slice / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            const size = Math.max(14, Math.min(22, 680 / (n + 2)));
+            ctx.font = `700 ${size}px Roboto, system-ui, sans-serif`;
+            ctx.shadowColor = "#0008";
+            ctx.shadowBlur = 4;
+            const label = names[i].length > 18 ? names[i].slice(0, 16) + "…" : names[i];
+            ctx.fillText(label, r - 12, 6);
+            ctx.restore();
+          }
+          ctx.restore();
+
+          // center cap
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle =
+            getComputedStyle(document.documentElement).getPropertyValue("--panel") ||
+            "#fff";
+          ctx.fill();
+          ctx.strokeStyle = "rgb(0 0 0 / 0.12)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
+        function segmentCenterAngle(i) {
+          const n = names.length;
+          const slice = (Math.PI * 2) / n;
+          return -Math.PI / 2 + (i + 0.5) * slice;
+        }
+
+        function spin() {
+          if (spinning) return;
+          const n = parseNames();
+          if (n < 2) {
+            resultEl.textContent = n === 1 ? `Winner: ${names[0]}` : "Add at least two names.";
+            drawWheel();
+            return;
+          }
+
+          let winner;
+          if (forcedIndex !== null && forcedIndex >= 0 && forcedIndex < n) {
+            winner = forcedIndex;
+          } else {
+            winner = randomIndex();
+          }
+
+          const pointer = -Math.PI / 2;
+          const current = rotation;
+          const centerWinner = segmentCenterAngle(winner);
+          const normalized =
+            ((pointer - centerWinner - current) % (Math.PI * 2) + Math.PI * 2) %
+            (Math.PI * 2);
+
+          const extraTurns = 6 + Math.floor(Math.random() * 3);
+          const target = current + extraTurns * Math.PI * 2 + normalized;
+
+          spinning = true;
+          spinBtn.disabled = true;
+          spinTopBtn.disabled = true;
+          resultEl.textContent = "";
+
+          const duration = 4500;
+          const t0 = performance.now();
+
+          function frame(now) {
+            const t = Math.min(1, (now - t0) / duration);
+            const e = easeOutCubic(t);
+            rotation = current + (target - current) * e;
+            drawWheel();
+            if (t < 1) {
+              requestAnimationFrame(frame);
+              return;
+            }
+
+            rotation = target;
+            drawWheel();
+            spinning = false;
+            spinBtn.disabled = false;
+            spinTopBtn.disabled = false;
+
+            const winnerName = names[winner];
+            resultEl.textContent = `Winner: ${winnerName}`;
+
+            if (removeWinnerAfterSpin) {
+              names.splice(winner, 1);
+              entriesEl.value = names.join("\n");
+              fillRigSelect();
+              drawWheel();
+            }
+
+            if (forcedIndex !== null) {
+              forcedIndex = null;
+              rigSelect.value = "";
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        function shuffleList() {
+          parseNames();
+          for (let i = names.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [names[i], names[j]] = [names[j], names[i]];
+          }
+          entriesEl.value = names.join("\n");
+          fillRigSelect();
+          drawWheel();
+        }
+
+        entriesEl.addEventListener("input", () => {
+          parseNames();
+          fillRigSelect();
+          drawWheel();
+        });
+
+        spinBtn.addEventListener("click", spin);
+        spinTopBtn.addEventListener("click", spin);
+        shuffleBtn.addEventListener("click", shuffleList);
+        clearBtn.addEventListener("click", () => {
+          entriesEl.value = "";
+          parseNames();
+          fillRigSelect();
+          drawWheel();
+          resultEl.textContent = "";
+        });
+
+        removeWinnerBtn.addEventListener("click", () => {
+          removeWinnerAfterSpin = !removeWinnerAfterSpin;
+          removeWinnerBtn.classList.toggle("primary", removeWinnerAfterSpin);
+          removeWinnerBtn.textContent = removeWinnerAfterSpin
+            ? "Remove winner: ON"
+            : "Remove winner";
+        });
+
+        // hidden rig UI
+        rigHost.addEventListener("click", () => {
+          fillRigSelect();
+          rigPanel.classList.toggle("open");
+        });
+        rigSelect.addEventListener("change", () => {
+          const v = rigSelect.value;
+          forcedIndex = v === "" ? null : Number(v);
+        });
+        rigClear.addEventListener("click", () => {
+          forcedIndex = null;
+          rigSelect.value = "";
+        });
+        rigClose.addEventListener("click", () => {
+          rigPanel.classList.remove("open");
+        });
+        document.addEventListener("click", (e) => {
+          if (!rigPanel.classList.contains("open")) return;
+          if (rigPanel.contains(e.target) || rigHost.contains(e.target)) return;
+          rigPanel.classList.remove("open");
+        });
+
+        parseNames();
+        fillRigSelect();
+        drawWheel();
+      })();
+    </script>
+  </body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wheel Spinner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --panel: #ffffff;
+        --text: #111111;
+        --muted: #5a616d;
+        --accent: #1976d2;
+        --border: #0000001a;
+        --toolbar: #f5f5f5;
+        --shadow: 0px 3px 6px 2px rgb(0 0 0 / 0.2);
+        --card-shadow: 0 0 8px #0003;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121212;
+          --panel: #1c1f26;
+          --text: #ffffff;
+          --muted: #c9ced8;
+          --border: #ffffff22;
+          --toolbar: #1c1f26;
+          --shadow: 0px 3px 6px 2px rgb(0 0 0 / 0.5);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        padding: 0 12px;
+        min-height: 50px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--toolbar);
+        color: var(--text);
+        box-shadow: var(--shadow);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+      .brand-badge {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: #0f172a;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 10px #0003;
+      }
+      .brand-badge svg {
+        width: 22px;
+        height: 22px;
+      }
+      .topbar-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: transparent;
+        font-weight: 600;
+        font-size: 13px;
+        user-select: none;
+      }
+      .layout {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 22px 12px 96px;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        align-items: start;
+      }
+      @media (min-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr minmax(520px, 700px) minmax(320px, 420px) 1fr;
+          column-gap: 20px;
+        }
+      }
+      .gutter {
+        display: none;
+      }
+      @media (min-width: 900px) {
+        .gutter {
+          display: block;
+        }
+      }
+      .wheel-col {
+        display: grid;
+        justify-items: center;
+      }
+      .wheel-wrap {
+        position: relative;
+        flex: 0 0 auto;
+      }
+      canvas {
+        display: block;
+        max-width: min(92vw, 700px);
+        height: auto;
+        border-radius: 50%;
+        box-shadow: var(--card-shadow);
+      }
+      .pointer {
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 16px solid transparent;
+        border-right: 16px solid transparent;
+        border-top: 32px solid var(--accent);
+        filter: drop-shadow(0 2px 4px #0004);
+        z-index: 2;
+      }
+      .side {
+        flex: 1 1 280px;
+        max-width: 420px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px 16px 14px;
+        box-shadow: var(--card-shadow);
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--muted);
+      }
+      textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        resize: vertical;
+      }
+      textarea:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+        outline-offset: 2px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+        align-items: center;
+      }
+      button.primary {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        padding: 10px 16px;
+        border-radius: 4px;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.primary:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button.ghost {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: inherit;
+        padding: 10px 14px;
+        border-radius: 4px;
+        font: inherit;
+        cursor: pointer;
+        font-weight: 700;
+      }
+      .result {
+        margin-top: 12px;
+        font-size: 1.15rem;
+        font-weight: 700;
+        min-height: 1.5em;
+      }
+      /* Hidden host: invisible hit target bottom-left */
+      #rig-host {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 56px;
+        height: 56px;
+        z-index: 50;
+        cursor: default;
+        background: transparent;
+        border: none;
+        padding: 0;
+        margin: 0;
+      }
+      #rig-host:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      #rig-panel {
+        position: fixed;
+        left: 12px;
+        bottom: 64px;
+        width: min(92vw, 320px);
+        padding: 14px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 12px 40px #0004;
+        z-index: 51;
+        display: none;
+      }
+      #rig-panel.open {
+        display: block;
+      }
+      #rig-panel h3 {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+      #rig-panel p {
+        margin: 0 0 10px;
+        font-size: 0.8rem;
+        opacity: 0.85;
+      }
+      #rig-panel select,
+      #rig-panel button {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px;
+        border-radius: 8px;
+        font: inherit;
+      }
+      #rig-panel select {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: inherit;
+      }
+      #rig-panel .rig-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      #rig-panel .rig-actions button {
+        margin-top: 0;
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2a10 10 0 1 0 10 10"
+              stroke="#ffffff"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M12 6a6 6 0 1 0 6 6"
+              stroke="#60a5fa"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path
+              d="M12 10a2 2 0 1 0 2 2"
+              stroke="#34d399"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div>wheelofnames.com</div>
+      </div>
+      <div class="topbar-actions">
+        <div class="chip" title="Local wheel spinner">Free spinner</div>
+      </div>
+    </header>
+    <div class="layout">
+      <div class="gutter"></div>
+      <div class="wheel-col">
+        <div class="wheel-wrap">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="640" height="640" role="img" aria-label="Prize wheel"></canvas>
+        </div>
+      </div>
+      <div class="side">
+        <label for="entries">One name per line</label>
+        <textarea id="entries" spellcheck="false">Alex
+Jamie
+Riley
+Jordan
+Casey</textarea>
+        <div class="row">
+          <button type="button" class="primary" id="spinBtn">Spin</button>
+          <button type="button" class="ghost" id="shuffleBtn">Shuffle list</button>
+        </div>
+        <div class="result" id="result" aria-live="polite"></div>
+      </div>
+      <div class="gutter"></div>
+    </div>
+
+    <!-- Hidden trigger: click the empty bottom-left corner (56×56) -->
+    <button type="button" id="rig-host" title="" aria-label=""></button>
+    <div id="rig-panel" role="dialog" aria-labelledby="rig-title">
+      <h3 id="rig-title">Next spin outcome</h3>
+      <p>Pick who wins on the next spin. Clears after one spin. Leave as random for normal behavior.</p>
+      <select id="rig-select" aria-label="Forced winner"></select>
+      <div class="rig-actions">
+        <button type="button" class="ghost" id="rig-clear">Use random</button>
+        <button type="button" class="primary" id="rig-close">Done</button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        const entriesEl = document.getElementById("entries");
+        const spinBtn = document.getElementById("spinBtn");
+        const shuffleBtn = document.getElementById("shuffleBtn");
+        const resultEl = document.getElementById("result");
+        const rigHost = document.getElementById("rig-host");
+        const rigPanel = document.getElementById("rig-panel");
+        const rigSelect = document.getElementById("rig-select");
+        const rigClear = document.getElementById("rig-clear");
+        const rigClose = document.getElementById("rig-close");
+
+        const colors = [
+          "#5c6bc0",
+          "#42a5f5",
+          "#26a69a",
+          "#66bb6a",
+          "#ffca28",
+          "#ff7043",
+          "#ab47bc",
+          "#ec407a",
+          "#78909c",
+        ];
+
+        let names = [];
+        let rotation = 0;
+        let spinning = false;
+        /** @type {number | null} index into names for next spin, or null */
+        let forcedIndex = null;
+
+        function parseNames() {
+          names = entriesEl.value
+            .split(/\r?\n/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return names.length;
+        }
+
+        function fillRigSelect() {
+          const n = parseNames();
+          rigSelect.innerHTML = "";
+          if (n === 0) {
+            rigSelect.disabled = true;
+            return;
+          }
+          rigSelect.disabled = false;
+          const opt0 = document.createElement("option");
+          opt0.value = "";
+          opt0.textContent = "— Random —";
+          rigSelect.appendChild(opt0);
+          names.forEach((name, i) => {
+            const o = document.createElement("option");
+            o.value = String(i);
+            o.textContent = name;
+            rigSelect.appendChild(o);
+          });
+          if (forcedIndex !== null && forcedIndex >= 0 && forcedIndex < n) {
+            rigSelect.value = String(forcedIndex);
+          } else {
+            rigSelect.value = "";
+          }
+        }
+
+        function drawWheel() {
+          const n = names.length;
+          const w = canvas.width;
+          const h = canvas.height;
+          const cx = w / 2;
+          const cy = h / 2;
+          const r = Math.min(w, h) * 0.42;
+          ctx.clearRect(0, 0, w, h);
+
+          if (n === 0) {
+            ctx.fillStyle = "#8884";
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            return;
+          }
+
+          const slice = (Math.PI * 2) / n;
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(rotation);
+          for (let i = 0; i < n; i++) {
+            const start = -Math.PI / 2 + i * slice;
+            const end = start + slice;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, r, start, end);
+            ctx.closePath();
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.fill();
+            ctx.strokeStyle = "#fff8";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.save();
+            ctx.rotate(start + slice / 2);
+            ctx.textAlign = "right";
+            ctx.fillStyle = "#fff";
+            ctx.font = `bold ${Math.max(14, Math.min(22, 640 / (n + 2)))}px system-ui,sans-serif`;
+            ctx.shadowColor = "#0008";
+            ctx.shadowBlur = 4;
+            const label = names[i].length > 18 ? names[i].slice(0, 16) + "…" : names[i];
+            ctx.fillText(label, r - 12, 6);
+            ctx.restore();
+          }
+          ctx.restore();
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, r * 0.12, 0, Math.PI * 2);
+          ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--panel") || "#fff";
+          ctx.fill();
+          ctx.strokeStyle = "#0002";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+
+        function easeOutCubic(t) {
+          return 1 - Math.pow(1 - t, 3);
+        }
+
+        /** Angle of center of segment i (wheel coords), pointer at top = -π/2 */
+        function segmentCenterAngle(i) {
+          const n = names.length;
+          const slice = (Math.PI * 2) / n;
+          return -Math.PI / 2 + (i + 0.5) * slice;
+        }
+
+        function randomIndex() {
+          const n = names.length;
+          const buf = new Uint32Array(1);
+          crypto.getRandomValues(buf);
+          return buf[0] % n;
+        }
+
+        function spin() {
+          if (spinning) return;
+          const n = parseNames();
+          if (n < 2) {
+            resultEl.textContent = n === 1 ? names[0] : "Add at least two names.";
+            drawWheel();
+            return;
+          }
+
+          let winner;
+          if (forcedIndex !== null && forcedIndex >= 0 && forcedIndex < n) {
+            winner = forcedIndex;
+          } else {
+            winner = randomIndex();
+          }
+
+          const pointer = -Math.PI / 2;
+          const current = rotation;
+          const centerWinner = segmentCenterAngle(winner);
+          const normalized = ((pointer - centerWinner - current) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+          const extraTurns = 5 + Math.floor(Math.random() * 3);
+          const target = current + extraTurns * Math.PI * 2 + normalized;
+
+          spinning = true;
+          spinBtn.disabled = true;
+          resultEl.textContent = "";
+
+          const duration = 4500;
+          const t0 = performance.now();
+
+          function frame(now) {
+            const t = Math.min(1, (now - t0) / duration);
+            const e = easeOutCubic(t);
+            rotation = current + (target - current) * e;
+            drawWheel();
+            if (t < 1) {
+              requestAnimationFrame(frame);
+            } else {
+              rotation = target;
+              drawWheel();
+              spinning = false;
+              spinBtn.disabled = false;
+              resultEl.textContent = "Winner: " + names[winner];
+              if (forcedIndex !== null) {
+                forcedIndex = null;
+                rigSelect.value = "";
+              }
+            }
+          }
+          requestAnimationFrame(frame);
+        }
+
+        entriesEl.addEventListener("input", () => {
+          parseNames();
+          fillRigSelect();
+          drawWheel();
+        });
+
+        spinBtn.addEventListener("click", spin);
+        shuffleBtn.addEventListener("click", () => {
+          parseNames();
+          for (let i = names.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [names[i], names[j]] = [names[j], names[i]];
+          }
+          entriesEl.value = names.join("\n");
+          fillRigSelect();
+          drawWheel();
+        });
+
+        rigHost.addEventListener("click", () => {
+          fillRigSelect();
+          rigPanel.classList.toggle("open");
+        });
+
+        rigSelect.addEventListener("change", () => {
+          const v = rigSelect.value;
+          forcedIndex = v === "" ? null : Number(v);
+        });
+
+        rigClear.addEventListener("click", () => {
+          forcedIndex = null;
+          rigSelect.value = "";
+        });
+
+        rigClose.addEventListener("click", () => {
+          rigPanel.classList.remove("open");
+        });
+
+        document.addEventListener("click", (e) => {
+          if (!rigPanel.classList.contains("open")) return;
+          if (rigPanel.contains(e.target) || rigHost.contains(e.target)) return;
+          rigPanel.classList.remove("open");
+        });
+
+        parseNames();
+        fillRigSelect();
+        drawWheel();
+      })();
+    </script>
+  </body>
+</html>
